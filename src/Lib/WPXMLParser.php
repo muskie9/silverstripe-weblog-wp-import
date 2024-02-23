@@ -46,6 +46,12 @@ class WPXMLParser
         ]);
 
         foreach ($this->xml->channel->item as $item) {
+            $wp = $item->children($this->wp_export_format);
+
+            if('post' != (string) $wp->post_type) {
+                continue;
+            }
+
             $categories = ArrayList::create();
             $tags       = ArrayList::create();
             foreach ($item->category as $category) {
@@ -63,8 +69,6 @@ class WPXMLParser
 
             // Convert publish date
             $publish_date = date('Y-m-d H:i:s', strtotime((string) $item->pubDate));
-
-            $wp = $item->children($this->wp_export_format);
 
             $post = ArrayData::create([
                 'Title'       => trim((string) $item->title),

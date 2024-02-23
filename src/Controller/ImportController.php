@@ -2,9 +2,9 @@
 
 namespace Axllent\WeblogWPImport\Control;
 
-use Axllent\Weblog\Model\Blog;
-use Axllent\Weblog\Model\BlogCategory;
-use Axllent\Weblog\Model\BlogPost;
+use SilverStripe\Blog\Model\Blog;
+use SilverStripe\Blog\Model\BlogCategory;
+use SilverStripe\Blog\Model\BlogPost;
 use Axllent\WeblogWPImport\Lib\WPXMLParser;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
@@ -13,9 +13,9 @@ use SilverStripe\Assets\FileNameFilter;
 use SilverStripe\Assets\Image;
 use SilverStripe\CMS\Model\SiteTree;
 use SilverStripe\Control\Controller;
-use SilverStripe\Control\Session;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Config\Config;
+use SilverStripe\Dev\Debug;
 use SilverStripe\Forms\CheckboxSetField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\FieldList;
@@ -23,12 +23,12 @@ use SilverStripe\Forms\FileField;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\NumericField;
-use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\Forms\RequiredFields;
 use SilverStripe\ORM\ArrayList;
 use SilverStripe\ORM\FieldType\DBHTMLText;
 use SilverStripe\Security\Permission;
 use SilverStripe\Security\Security;
+use SilverStripe\Versioned\Versioned;
 use SilverStripe\View\ArrayData;
 use SilverStripe\View\Requirements;
 use SimpleHtmlDom;
@@ -139,7 +139,7 @@ class ImportController extends Controller
         ];
 
         /* Add option for importing BlogCategory if it exists */
-        if (class_exists('Axllent\\Weblog\\Model\\BlogCategory')) {
+        if (class_exists('SilverStripe\\Blog\\Model\\BlogCategory')) {
             $options = array_reverse($options, true);
             $options['categories'] = 'Import blog categories';
             $options = array_reverse($options, true);
@@ -246,7 +246,7 @@ class ImportController extends Controller
         $blog_posts_updated = 0;
         $assets_downloaded = 0;
 
-        $this->featured_image_folder = Config::inst()->get('Axllent\\Weblog\\Model\\BlogPost', 'featured_image_folder');
+        $this->featured_image_folder = Config::inst()->get('SilverStripe\\Blog\\Model\\BlogPost', 'featured_image_folder');
 
         foreach ($import->Posts as $orig) {
             $blog_post = BlogPost::get()->filter('URLSegment', $orig->URLSegment)->first();
@@ -399,7 +399,8 @@ class ImportController extends Controller
                             $file->Title = $img->alt;
                         }
                         $file->write();
-                        $file->doPublish();
+                        $file->writeToStage(Versioned::DRAFT);
+                        $file->publishSingle();
                     }
 
                     if ($file) {
@@ -505,7 +506,8 @@ class ImportController extends Controller
 
                             $file->setFromString($data, $this->featured_image_folder .'/' . $file_name);
                             $file->write();
-                            $file->doPublish();
+                            $file->writeToStage(Versioned::DRAFT);
+                            $file->publishSingle();
                         }
                         if ($file) {
                             // re-link to file
@@ -561,7 +563,8 @@ class ImportController extends Controller
                             $file = new Image();
                             $file->setFromString($data, $this->featured_image_folder .'/' . $file_name);
                             $file->write();
-                            $file->doPublish();
+                            $file->writeToStage(Versioned::DRAFT);
+                            $file->publishSingle();
                         }
 
                         if ($file) {
@@ -572,7 +575,10 @@ class ImportController extends Controller
             }
 
             $blog_post->write();
-            $blog_post->doPublish();
+            $blog_post->writeToStage(Versioned::DRAFT);
+            if ($orig->Status == 'publish') {
+                $blog_post->publishSingle();
+            }
 
             // Add categories
             if ($process_categories) {
@@ -596,7 +602,7 @@ class ImportController extends Controller
 
         $status[] = $assets_downloaded . ' assets downloaded';
 
-        $form->sessionMessage(implode($status, ', '), 'good');
+        $form->sessionMessage(implode(', ', $status), 'good');
 
         return $this->redirectBack();
     }
@@ -678,7 +684,7 @@ class ImportController extends Controller
 
         return ArrayData::create([
             'SiteURL' => $data->SiteURL,
-            'Posts' => $data->Posts->filter('Status', 'publish'),
+            'Posts' => $data->Posts,
             'Categories' => $categories
         ]);
     }
