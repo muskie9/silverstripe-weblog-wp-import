@@ -19,7 +19,6 @@
         "issues": "https://github.com/axllent/silverstripe-weblog-wp-import/issues"
     },
     "require": {
-        "axllent/silverstripe-weblog": "^1.0",
         "axllent/simplehtmldom": "^1.5",
         "guzzlehttp/guzzle": "^7"
     },
